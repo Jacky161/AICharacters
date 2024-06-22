@@ -1,3 +1,0 @@
-# Highly recommended to install manually with CUDA support!
-# ex. CMAKE_ARGS="-DLLAMA_CUDA=on" pip install llama-cpp-python
-llama-cpp-python>=0.2.79
