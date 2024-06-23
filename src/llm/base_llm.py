@@ -2,7 +2,7 @@ import json
 import copy
 from typing import Optional
 from abc import ABC, abstractmethod
-from llmexceptions import *
+from .llmexceptions import *
 
 
 class BaseLLM(ABC):
