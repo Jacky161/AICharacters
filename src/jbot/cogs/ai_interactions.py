@@ -14,7 +14,7 @@ class AIInteractions(commands.Cog):
         self.bot = bot
         dotenv.load_dotenv(dotenv.find_dotenv())
 
-        # Connect to LLM API
+        # Variables to connect to LLM API
         llm_model: str = str(os.getenv("AI_LLM_MODEL"))
         api_key: str = str(os.getenv("AI_API_KEY"))
         api_url: str = str(os.getenv("AI_API_URL"))
@@ -22,8 +22,9 @@ class AIInteractions(commands.Cog):
         verbose: bool = bool(os.getenv("AI_VERBOSE"))
         n_ctx: int = int(os.getenv("AI_n_ctx"))
 
-        self._llm = RemoteLLMManager(llm_model, api_key, api_url, system_message=system_message, verbose=verbose,
-                                     n_ctx=n_ctx)
+        # TODO: Make each user have their own LLMManager
+        self._llm: RemoteLLMManager = RemoteLLMManager(llm_model, api_key, api_url,
+                                                       system_message=system_message, verbose=verbose, n_ctx=n_ctx)
 
     ai_cmdgrp = discord.SlashCommandGroup("ai", "AI Interactions")
 
@@ -34,9 +35,9 @@ class AIInteractions(commands.Cog):
 
 
 class BasicPrompt(discord.ui.Modal):
-    def __init__(self, llm, *args, **kwargs) -> None:
+    def __init__(self, llm: RemoteLLMManager, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._llm = llm
+        self._llm: RemoteLLMManager = llm
         self.add_item(discord.ui.InputText(label="Your prompt:", style=discord.InputTextStyle.long, max_length=1024))
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -56,19 +57,19 @@ class BasicPrompt(discord.ui.Modal):
         embed_strs = paragraph_split(ai_response[0])
 
         # Add our chunks until we hit 6k limit
-        embed_title = "AI Response"
-        prompt_str = "Prompt:"
-        answer_str = "Answer:"
+        embed_title: str = "AI Response"
+        prompt_str: str = "Prompt:"
+        answer_str: str = "Answer:"
 
         # Add prompt text and the answer title first
         embeds = [discord.Embed(title=embed_title, colour=discord.Colour.blurple())]
         embeds[0].add_field(name=prompt_str, value=self.children[0].value, inline=False)
 
-        max_embed_length = 6000
-        max_fields = 25
-        total_fields = 1
-        total_characters = len(self.children[0].value) + len(embed_title) + len(prompt_str) + len(answer_str)
-        cur_idx = 0
+        max_embed_length: int = 6000
+        max_fields: int = 25
+        total_fields: int = 1
+        total_characters: int = len(self.children[0].value) + len(embed_title) + len(prompt_str) + len(answer_str)
+        cur_idx: int = 0
 
         # Process all embed strings
         while len(embed_strs) > 0:
@@ -79,9 +80,9 @@ class BasicPrompt(discord.ui.Modal):
 
                 # First chunk of AI Response will always have "Answer:" as the title
                 if cur_idx == 0 and total_fields == 2:
-                    name = answer_str
+                    name: str = answer_str
                 else:
-                    name = ""
+                    name: str = ""
 
                 embeds[cur_idx].add_field(name=name, value=embed_strs.pop(0), inline=False)
 
