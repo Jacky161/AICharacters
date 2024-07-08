@@ -5,8 +5,8 @@ from typing import Optional
 
 from gtts import gTTS
 from src.llm import RemoteLLMManager
-from audiomanager import AudioManager
-from obsmanager import OBSWSManager
+from .audiomanager import AudioManager
+from .obsmanager import OBSWSManager
 
 
 class OnScreenCharacter:
