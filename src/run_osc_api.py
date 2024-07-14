@@ -1,9 +1,9 @@
 import uvicorn
 import threading
+import csv
 from fastapi import FastAPI, Response, status
 from onscreencharacter import OnScreenCharacter
 from queue import Queue
-
 
 app = FastAPI()
 
@@ -16,13 +16,42 @@ def api_chat(osc: str, message: str, response: Response):
 
     # Add message to the queue to be processed
     app.state.chat_queue.put((osc, message))
-    return {"queue position": app.state.chat_queue.qsize()}
+    return {"Queue Position": app.state.chat_queue.qsize()}
+
+
+@app.put("/api/{osc}/messages", status_code=status.HTTP_204_NO_CONTENT)
+def api_replace_messages(osc: str, messages: list[dict[str, str]] | None = None):
+    """
+    Replaces the message history of a certain onscreen character with a new history
+    """
+    app.state.characters[osc].set_message_history(messages)
+
+@app.put("/api/{osc}/sysmsg", status_code=status.HTTP_200_OK)
+def api_replace_system_message(osc: str, system_message: str | None = None):
+    """
+    Replaces the system message of a certain onscreen character, returning the number of tokens present in the new msg.
+    """
+    tokens = app.state.characters[osc].set_system_message(system_message)
+    return {"system message tokens": tokens}
+
+@app.get("/api/{osc}/messages")
+def api_get_messages(osc: str):
+    """
+    Gets the message history of a certain onscreen character.
+    """
+    return app.state.characters[osc].get_message_history()
+
+
+@app.get("/api/characters")
+def api_get_characters():
+    """
+    Gets names of all characters that can be used through the API.
+    """
+    return list(app.state.characters.keys())
+
 
 
 def init_app_state():
-    # TODO: Use .env or some other config file
-    scene_name = "Websockets Testing"
-
     app.state.characters = {}
     app.state.chat_queue = Queue(maxsize=0)  # Infinite queue size
 
@@ -30,11 +59,18 @@ def init_app_state():
     app.state.worker = threading.Thread(target=talk_char, args=(app.state.chat_queue,), daemon=True)
     app.state.worker.start()
 
-    # Each character has its own OSC class
-    # TODO: Use .env or some other config file
-    characters = ["Steve", "Herobrine"]
-    for character in characters:
-        app.state.characters[character] = OnScreenCharacter(scene_name, character + " - AICharacter")
+    # Read each character from the csv file
+    with open("characters.csv") as char_csv:
+        csv_reader = csv.reader(char_csv, delimiter=",")
+
+        line_no = 0
+        for row in csv_reader:
+            if line_no == 0:
+                assert row == ["character_name", "scene_name", "source_name"]
+            else:
+                app.state.characters[row[0]] = OnScreenCharacter(row[1], row[2])
+
+            line_no += 1
 
 
 def talk_char(q: Queue):

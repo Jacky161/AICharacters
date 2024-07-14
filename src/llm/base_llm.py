@@ -65,6 +65,85 @@ class BaseLLM(ABC):
         """
         return copy.deepcopy(self._messages)
 
+    def set_message_history(self, messages: list[dict[str, str]] | None = None) -> None:
+        """
+        Sets the message history of the LLM to the given history
+        """
+        if messages is None:
+            self.clear_message_history()
+            return
+
+        messages = copy.deepcopy(messages)
+        valid_roles = ("system", "user", "assistant")
+
+        for message in messages:
+            # Input validation
+            assert message.keys() == {"role", "content"}
+            assert isinstance(message["content"], str)
+            assert message["role"] in valid_roles
+
+        # Check if a system message is included in the given message history and deal with it accordingly
+        if messages[0]["role"] == "system":
+            self._system_msg_tokens = self.get_token_msg(messages[0]["content"], "system")
+            self._messages = messages
+            return
+
+        # No system message was given. If there is no system message anyway then we can overwrite directly
+        if self._system_msg_tokens == 0:
+            self._messages = messages
+            return
+
+        # We have a system message, keep it and throw away the rest
+        self._messages = [self._messages[0]] + messages
+
+    def clear_message_history(self) -> None:
+        """
+        Clears the message history not including the system message.
+        """
+        if len(self._messages) > 0:
+            # Can just directly clear the list if we have no system message
+            if self._messages[0]["role"] != "system":
+                self._messages = []
+                return
+
+            # Clear all but the first message if we do have a system message
+            self._messages = [self._messages[0]]
+
+    def set_system_message(self, system_message: str | None = None) -> int:
+        """
+        Sets a new system message, returning the number of tokens present
+        """
+        # For clearing system message
+        if system_message is None:
+            self.clear_system_message()
+            return 0
+
+        new_sysmsg_tokens = self.get_token_msg(system_message, "system")
+
+        if len(self._messages) == 0:
+            self.add_message("system", system_message)
+        elif self._messages[0]["role"] == "system":
+            self._messages[0]["content"] = system_message
+        else:
+            self._messages.insert(0, {"role": "system", "content": system_message})
+
+        self._system_msg_tokens = new_sysmsg_tokens
+
+        return new_sysmsg_tokens
+
+    def clear_system_message(self) -> bool:
+        """
+        Clears the system message if it is present. Returns true if there was a system message. False otherwise.
+        """
+        self._system_msg_tokens = 0
+
+        if len(self._messages) > 0:
+            if self._messages[0]["role"] == "system":
+                self._messages.pop(0)
+                return True
+
+        return False
+
     def _prep_ask(self, msg: str) -> bool:
         """
         Preps the LLM for a new prompt provided to it. We make sure the message does not have too many tokens

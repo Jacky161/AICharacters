@@ -59,6 +59,24 @@ class OnScreenCharacter:
         self._audio.play(file_name)
         self._obs.set_source_visibility(self._scene_name, self._source_name, False)
 
+    def get_message_history(self) -> list[dict[str, str]]:
+        """
+        Returns a copy of the messages in the conversation history.
+        """
+        return self._llm.get_message_history()
+
+    def set_message_history(self, messages: list[dict[str, str]] | None = None) -> None:
+        """
+        Sets the message history of the LLM to the given history
+        """
+        return self._llm.set_message_history(messages)
+
+    def set_system_message(self, system_message: str | None = None) -> int:
+        """
+        Sets a new system message, returning the number of tokens present
+        """
+        return self._llm.set_system_message(system_message)
+
     def _log(self, *args):
         if self.verbose:
             print("[CharacterMgr]", *args)
