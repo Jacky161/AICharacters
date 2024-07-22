@@ -2,6 +2,7 @@ import os
 import dotenv
 import openai
 import discord
+import requests
 from typing import Optional
 from discord.ext import commands
 from ...llm import RemoteLLMManager
@@ -21,6 +22,11 @@ class AIInteractions(commands.Cog):
         system_message: Optional[str] = os.getenv("AI_SYSTEM_MESSAGE")
         verbose: bool = bool(os.getenv("AI_VERBOSE"))
         n_ctx: int = int(os.getenv("AI_n_ctx"))
+        self._aichar_api_url = str(os.getenv("AICHAR_API_URL"))
+
+        # Remove trailing backslash
+        if self._aichar_api_url[-1] == "/":
+            self._aichar_api_url = self._aichar_api_url[:-1]
 
         # TODO: Make each user have their own LLMManager
         self._llm: RemoteLLMManager = RemoteLLMManager(llm_model, api_key, api_url,
@@ -32,6 +38,14 @@ class AIInteractions(commands.Cog):
     async def basic_prompt_modal(self, ctx: discord.ApplicationContext):
         modal = BasicPrompt(title="AI Prompt Modal", llm=self._llm)
         await ctx.send_modal(modal)
+
+    aichars_cmdgrp = discord.SlashCommandGroup("aichars", "AI Character Interactions")
+
+    @aichars_cmdgrp.command(name="prompt", description="Talk to a live AI Character with your own prompt.")
+    async def aichars_prompt_modal(self, ctx: discord.ApplicationContext):
+        modal = CharPrompt(title="AICharacter Prompt Modal", api=self._aichar_api_url)
+        await ctx.send_modal(modal)
+
 
 
 class BasicPrompt(discord.ui.Modal):
@@ -101,6 +115,34 @@ class BasicPrompt(discord.ui.Modal):
             # Need to send the rest as individual messages
             for i in range(1, len(embeds)):
                 await interaction.respond(embed=embeds[i])
+
+
+class CharPrompt(discord.ui.Modal):
+    def __init__(self, api, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._api = api
+
+        # Get available characters to display in modal
+        response = requests.get("http://localhost:8000/api/characters")
+        chars = response.json()
+        char_names = ', '.join(chars)
+
+        self.add_item(discord.ui.InputText(label=f"Character Name: ({char_names})", style=discord.InputTextStyle.short))
+        self.add_item(discord.ui.InputText(label="Your prompt:", style=discord.InputTextStyle.long, max_length=1024))
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        char_name = self.children[0].value.capitalize()
+        prompt = self.children[1].value.encode("utf-8")
+        headers = {'Content-Type': 'text/plain; charset=utf-8'}
+
+        response = requests.post(f"{self._api}/{char_name}/chat", data=prompt, headers=headers)
+
+        if response.status_code != 202:
+            await interaction.respond(f"❌ {response.json()['detail']}")
+            return
+
+        response = response.json()
+        await interaction.respond(f"✅ Your prompt to {char_name} was queued at position {response['Queue Position']}")
 
 
 def setup(bot):  # this is called by Pycord to set up the cog

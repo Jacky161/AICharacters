@@ -10,7 +10,8 @@ app = FastAPI()
 
 
 @app.post("/api/{osc}/chat", status_code=status.HTTP_202_ACCEPTED)
-def api_chat(osc: str, message: Annotated[str, Body()], response: Response) -> dict[str, int]:
+def api_chat(osc: str, message: Annotated[str, Body()]) -> dict[str, int]:
+    osc = osc.lower()
     if osc not in app.state.characters:
         raise HTTPException(status_code=404, detail=f"OSC {osc} does not exist.")
 
