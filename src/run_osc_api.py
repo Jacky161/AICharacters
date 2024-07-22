@@ -9,7 +9,7 @@ app = FastAPI()
 
 
 @app.post("/api/{osc}/chat", status_code=status.HTTP_202_ACCEPTED)
-def api_chat(osc: str, message: str, response: Response):
+def api_chat(osc: str, message: str, response: Response) -> dict[str, int]:
     if osc not in app.state.characters:
         response.status_code = status.HTTP_404_NOT_FOUND
         return {"error": f"{osc} is not a valid character."}
@@ -20,22 +20,24 @@ def api_chat(osc: str, message: str, response: Response):
 
 
 @app.put("/api/{osc}/messages", status_code=status.HTTP_204_NO_CONTENT)
-def api_replace_messages(osc: str, messages: list[dict[str, str]] | None = None):
+def api_replace_messages(osc: str, messages: list[dict[str, str]] | None = None) -> None:
     """
     Replaces the message history of a certain onscreen character with a new history
     """
     app.state.characters[osc].set_message_history(messages)
 
+
 @app.put("/api/{osc}/sysmsg", status_code=status.HTTP_200_OK)
-def api_replace_system_message(osc: str, system_message: str | None = None):
+def api_replace_system_message(osc: str, system_message: str | None = None) -> dict[str, int]:
     """
     Replaces the system message of a certain onscreen character, returning the number of tokens present in the new msg.
     """
     tokens = app.state.characters[osc].set_system_message(system_message)
-    return {"system message tokens": tokens}
+    return {"System Message Tokens": tokens}
+
 
 @app.get("/api/{osc}/messages")
-def api_get_messages(osc: str):
+def api_get_messages(osc: str) -> list[dict[str, str]]:
     """
     Gets the message history of a certain onscreen character.
     """
@@ -43,12 +45,19 @@ def api_get_messages(osc: str):
 
 
 @app.get("/api/characters")
-def api_get_characters():
+def api_get_characters() -> list[str]:
     """
     Gets names of all characters that can be used through the API.
     """
     return list(app.state.characters.keys())
 
+
+@app.get("/api/queue")
+def api_get_queue() -> int:
+    """
+    Returns the length of the processing queue
+    """
+    return app.state.chat_queue.qsize()
 
 
 def init_app_state():
