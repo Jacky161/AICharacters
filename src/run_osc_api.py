@@ -1,18 +1,18 @@
 import uvicorn
 import threading
 import csv
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Response, status, Body, HTTPException
 from onscreencharacter import OnScreenCharacter
 from queue import Queue
+from typing import Annotated
 
 app = FastAPI()
 
 
 @app.post("/api/{osc}/chat", status_code=status.HTTP_202_ACCEPTED)
-def api_chat(osc: str, message: str, response: Response) -> dict[str, int]:
+def api_chat(osc: str, message: Annotated[str, Body()], response: Response) -> dict[str, int]:
     if osc not in app.state.characters:
-        response.status_code = status.HTTP_404_NOT_FOUND
-        return {"error": f"{osc} is not a valid character."}
+        raise HTTPException(status_code=404, detail=f"OSC {osc} does not exist.")
 
     # Add message to the queue to be processed
     app.state.chat_queue.put((osc, message))
@@ -28,7 +28,7 @@ def api_replace_messages(osc: str, messages: list[dict[str, str]] | None = None)
 
 
 @app.put("/api/{osc}/sysmsg", status_code=status.HTTP_200_OK)
-def api_replace_system_message(osc: str, system_message: str | None = None) -> dict[str, int]:
+def api_replace_system_message(osc: str, system_message: Annotated[str | None, Body()] = None) -> dict[str, int]:
     """
     Replaces the system message of a certain onscreen character, returning the number of tokens present in the new msg.
     """
